@@ -1,9 +1,12 @@
+import os
 import time
+import threading
 from collections import defaultdict
+from flask import Flask
 
 from pymongo import MongoClient
 
-from telegram import Update, ChatPermissions
+from telegram import Update
 from telegram.ext import (
     ApplicationBuilder,
     CommandHandler,
@@ -16,17 +19,33 @@ from telegram.ext import (
 # CONFIG
 # =====================
 TOKEN = "8969661165:AAEcO_i4VIVE681592N-pKtixfAYZczwvBw"
+
 MONGO_URL = "mongodb+srv://Godobito745_db_user:obito1877@telegram-bot.mfoibwj.mongodb.net/?appName=Telegram-bot"
+
 OWNER_ID = 8887583330
 
 # =====================
-# MONGO
+# FLASK FOR RENDER
+# =====================
+web = Flask(__name__)
+
+@web.route("/")
+def home():
+    return "Bot is online!"
+
+def run_web():
+    port = int(os.environ.get("PORT", 10000))
+    web.run(host="0.0.0.0", port=port)
+
+threading.Thread(target=run_web).start()
+
+# =====================
+# DATABASE
 # =====================
 client = MongoClient(MONGO_URL)
 db = client["telegram_bot"]
 
 warn_db = db["warns"]
-admin_db = db["admins"]
 
 # =====================
 # MEMORY
@@ -40,9 +59,9 @@ lock_pics = False
 lock_stickers = False
 
 # =====================
-# HELPERS
+# ADMIN CHECK
 # =====================
-async def is_admin(update: Update):
+async def is_admin(update):
     user_id = update.effective_user.id
 
     if user_id == OWNER_ID:
@@ -52,113 +71,194 @@ async def is_admin(update: Update):
     return member.status in ["administrator", "creator"]
 
 # =====================
-# BASIC COMMANDS
+# START
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("🤖 Bot is online!")
+    await update.message.reply_text(
+        "🤖 Bot Online!"
+    )
 
+# =====================
+# ID
+# =====================
 async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(f"🆔 Your ID: {update.effective_user.id}")
+    await update.message.reply_text(
+        f"🆔 Your ID: {update.effective_user.id}"
+    )
 
 # =====================
-# BAN / UNBAN
+# BAN
 # =====================
-async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def ban(update, context):
     if not await is_admin(update):
-        await update.message.reply_text("⚠️ Admin only")
+        await update.message.reply_text(
+            "⚠️ You need admin to use this command."
+        )
+        return
+
+    if not update.message.reply_to_message:
         return
 
     user = update.message.reply_to_message.from_user.id
     banned.add(user)
+
     await update.message.reply_text("🚫 User banned")
 
-async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =====================
+# UNBAN
+# =====================
+async def unban(update, context):
     if not await is_admin(update):
+        await update.message.reply_text(
+            "⚠️ You need admin to use this command."
+        )
+        return
+
+    if not update.message.reply_to_message:
         return
 
     user = update.message.reply_to_message.from_user.id
     banned.discard(user)
+
     await update.message.reply_text("✅ User unbanned")
 
 # =====================
 # MUTE
 # =====================
-async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def mute(update, context):
     if not await is_admin(update):
+        await update.message.reply_text(
+            "⚠️ You need admin to use this command."
+        )
+        return
+
+    if not update.message.reply_to_message:
         return
 
     user = update.message.reply_to_message.from_user.id
     muted.add(user)
+
     await update.message.reply_text("🔇 User muted")
 
-async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+# =====================
+# UNMUTE
+# =====================
+async def unmute(update, context):
     if not await is_admin(update):
+        await update.message.reply_text(
+            "⚠️ You need admin to use this command."
+        )
+        return
+
+    if not update.message.reply_to_message:
         return
 
     user = update.message.reply_to_message.from_user.id
     muted.discard(user)
+
     await update.message.reply_text("🔊 User unmuted")
 
 # =====================
-# WARN SYSTEM
+# WARN
 # =====================
-async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def warn(update, context):
     if not await is_admin(update):
+        await update.message.reply_text(
+            "⚠️ You need admin to use this command."
+        )
+        return
+
+    if not update.message.reply_to_message:
         return
 
     user = update.message.reply_to_message.from_user.id
 
     data = warn_db.find_one({"_id": user})
     count = data["count"] if data else 0
+
     count += 1
 
-    warn_db.update_one({"_id": user}, {"$set": {"count": count}}, upsert=True)
+    warn_db.update_one(
+        {"_id": user},
+        {"$set": {"count": count}},
+        upsert=True
+    )
 
     if count >= 3:
         banned.add(user)
-        await update.message.reply_text("🚫 Banned after 3 warns")
+        await update.message.reply_text(
+            "🚫 User banned after 3 warnings."
+        )
     else:
-        await update.message.reply_text(f"⚠️ Warning {count}/3")
+        await update.message.reply_text(
+            f"⚠️ Warning {count}/3"
+        )
 
 # =====================
-# LOCK SYSTEM
+# LOCK ALL
 # =====================
-async def lockall(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def lockall(update, context):
     global chat_locked
+
     if not await is_admin(update):
+        await update.message.reply_text(
+            "⚠️ You need admin."
+        )
         return
 
     chat_locked = True
-    await update.message.reply_text("🔒 Chat locked")
 
-async def unlockall(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🔒 Chat locked."
+    )
+
+async def unlockall(update, context):
     global chat_locked
+
     if not await is_admin(update):
         return
 
     chat_locked = False
-    await update.message.reply_text("🔓 Chat unlocked")
 
-async def lockpics(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🔓 Chat unlocked."
+    )
+
+# =====================
+# LOCK PICS
+# =====================
+async def lockpics(update, context):
     global lock_pics
+
     if not await is_admin(update):
         return
 
     lock_pics = True
-    await update.message.reply_text("🖼 Photos locked")
 
-async def locksticker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "🖼 Photos locked."
+    )
+
+# =====================
+# LOCK STICKERS
+# =====================
+async def locksticker(update, context):
     global lock_stickers
+
     if not await is_admin(update):
         return
 
     lock_stickers = True
-    await update.message.reply_text("🎭 Stickers locked")
+
+    await update.message.reply_text(
+        "🎭 Stickers locked."
+    )
 
 # =====================
-# MESSAGE FILTER
+# FILTERS
 # =====================
-async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def filter_messages(update, context):
+
     if not update.message:
         return
 
@@ -175,6 +275,7 @@ async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     if chat_locked:
         member = await update.effective_chat.get_member(user)
+
         if member.status not in ["administrator", "creator"]:
             await update.message.delete()
             return
@@ -185,8 +286,13 @@ async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
             return
 
     now = time.time()
+
     spam_tracker[user].append(now)
-    spam_tracker[user] = [t for t in spam_tracker[user] if now - t < 4]
+
+    spam_tracker[user] = [
+        t for t in spam_tracker[user]
+        if now - t < 4
+    ]
 
     if len(spam_tracker[user]) > 5:
         await update.message.delete()
@@ -203,6 +309,7 @@ async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # MAIN
 # =====================
 def main():
+
     app = ApplicationBuilder().token(TOKEN).build()
 
     app.add_handler(CommandHandler("start", start))
@@ -210,19 +317,28 @@ def main():
 
     app.add_handler(CommandHandler("ban", ban))
     app.add_handler(CommandHandler("unban", unban))
+
     app.add_handler(CommandHandler("mute", mute))
     app.add_handler(CommandHandler("unmute", unmute))
+
     app.add_handler(CommandHandler("warn", warn))
 
     app.add_handler(CommandHandler("lockall", lockall))
     app.add_handler(CommandHandler("unlockall", unlockall))
+
     app.add_handler(CommandHandler("lockpics", lockpics))
     app.add_handler(CommandHandler("locksticker", locksticker))
 
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
+    app.add_handler(
+        MessageHandler(
+            filters.ALL,
+            filter_messages
+        )
+    )
 
     print("Bot is running...")
-    app.run_polling()
+
+    app.run_polling(drop_pending_updates=True)
 
 if __name__ == "__main__":
     main()
