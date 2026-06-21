@@ -7,7 +7,8 @@ import time
 # =====================
 # BOT TOKEN
 # =====================
-TOKEN = "8969661165:AAHS20hgTSo9FperGJPybYBzovxkKoaJNX8"
+import os
+TOKEN = os.getenv("8969661165:AAHS20hgTSo9FperGJPybYBzovxkKoaJNX8")
 
 # =====================
 # OWNER
