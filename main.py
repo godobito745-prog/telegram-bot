@@ -4,6 +4,8 @@ import threading
 from collections import defaultdict
 from flask import Flask
 
+from telegram import ChatPermissions
+
 from pymongo import MongoClient
 
 from telegram import Update
@@ -91,72 +93,178 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================
 async def ban(update, context):
     if not await is_admin(update):
-        await update.message.reply_text(
-            "⚠️ You need admin to use this command."
-        )
+        await update.message.reply_text("⚠️ You need admin to do this.")
         return
 
     if not update.message.reply_to_message:
+        await update.message.reply_text("Reply to a user to ban them.")
         return
 
-    user = update.message.reply_to_message.from_user.id
-    banned.add(user)
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
 
-    await update.message.reply_text("🚫 User banned")
+    banned.add(user_id)
+
+    await context.bot.restrict_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        permissions=ChatPermissions(
+            can_send_messages=False,
+            can_send_media_messages=False,
+            can_send_polls=False,
+            can_send_other_messages=False,
+            can_add_web_page_previews=False
+        )
+    )
+
+    await update.message.reply_text("🚫 Another user gone 😞.")
 
 # =====================
 # UNBAN
 # =====================
 async def unban(update, context):
     if not await is_admin(update):
-        await update.message.reply_text(
-            "⚠️ You need admin to use this command."
-        )
+        await update.message.reply_text("⚠️ You need admin to do this.")
         return
 
     if not update.message.reply_to_message:
+        await update.message.reply_text("Reply to a user to unban them.")
         return
 
-    user = update.message.reply_to_message.from_user.id
-    banned.discard(user)
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
 
-    await update.message.reply_text("✅ User unbanned")
+    banned.discard(user_id)
+
+    await context.bot.restrict_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        permissions=ChatPermissions(
+            can_send_messages=True,
+            can_send_media_messages=True,
+            can_send_polls=True,
+            can_send_other_messages=True,
+            can_add_web_page_previews=True
+        )
+    )
+
+    await update.message.reply_text("Hey Hey welcome back dude 😎.")
 
 # =====================
 # MUTE
 # =====================
+from telegram import ChatPermissions
+
 async def mute(update, context):
     if not await is_admin(update):
-        await update.message.reply_text(
-            "⚠️ You need admin to use this command."
-        )
+        await update.message.reply_text("⚠️ You need admin to do this.")
         return
 
     if not update.message.reply_to_message:
+        await update.message.reply_text("Reply to a user to mute them.")
         return
 
-    user = update.message.reply_to_message.from_user.id
-    muted.add(user)
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
 
-    await update.message.reply_text("🔇 User muted")
+    muted.add(user_id)
+
+    await context.bot.restrict_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        permissions=ChatPermissions(
+            can_send_messages=False
+        )
+    )
+
+    await update.message.reply_text("shhhh.....There is no need to speak now.")
 
 # =====================
 # UNMUTE
 # =====================
 async def unmute(update, context):
     if not await is_admin(update):
-        await update.message.reply_text(
-            "⚠️ You need admin to use this command."
-        )
+        await update.message.reply_text("⚠️ You need admin to do this.")
         return
 
     if not update.message.reply_to_message:
+        await update.message.reply_text("Reply to a user to unmute them.")
         return
 
-    user = update.message.reply_to_message.from_user.id
-    muted.discard(user)
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
 
-    await update.message.reply_text("🔊 User unmuted")
+    muted.discard(user_id)
+
+    await context.bot.restrict_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        permissions=ChatPermissions(
+            can_send_messages=True,
+            can_send_media_messages=True,
+            can_send_polls=True,
+            can_send_other_messages=True,
+            can_add_web_page_previews=True
+        )
+    )
+
+    await update.message.reply_text("wow.....now you can speak 🗣️.")
+
+# ======================
+# PORMOTE 
+# ======================
+async def promote(update, context):
+    if not await is_admin(update):
+        await update.message.reply_text("⚠️ You need admin to do this.")
+        return
+
+    if not update.message.reply_to_message:
+        await update.message.reply_text("Reply to a user to promote them.")
+        return
+
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
+
+    await context.bot.promote_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        can_change_info=True,
+        can_delete_messages=True,
+        can_invite_users=True,
+        can_restrict_members=True,
+        can_pin_messages=True,
+        can_promote_members=False
+    )
+
+    await update.message.reply_text("👑 User promoted to admin.")
+
+# =====================
+# DEMOTE
+# =====================
+async def demote(update, context):
+    if not await is_admin(update):
+        await update.message.reply_text("⚠️ You need admin to do this.")
+        return
+
+    if not update.message.reply_to_message:
+        await update.message.reply_text("Reply to a user to demote them.")
+        return
+
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
+
+    await context.bot.promote_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        can_change_info=False,
+        can_delete_messages=False,
+        can_invite_users=False,
+        can_restrict_members=False,
+        can_pin_messages=False,
+        can_promote_members=False
+    )
+
+    await update.message.reply_text("👇 User demoted (admin removed).")
 
 # =====================
 # WARN
@@ -355,6 +463,12 @@ def main():
     
     app.add_handler(CommandHandler("locksticker", locksticker))
     app.add_handler(CommandHandler("unlockstickers", unlockstickers))
+    
+    app.add_handler(CommandHandler("mute", mute))
+    app.add_handler(CommandHandler("unmute", unmute))
+
+    app.add_handler(CommandHandler("promote", promote))
+    app.add_handler(CommandHandler("demote", demote))
 
     app.add_handler(
         MessageHandler(
