@@ -238,7 +238,19 @@ async def lockpics(update, context):
     await update.message.reply_text(
         "🖼 Photos locked."
     )
+    
+#======================
+# UNLOCH PICS
+#======================
+async def unlockpics(update, context):
+    global lock_pics
 
+    if not await is_admin(update):
+        return
+
+    lock_pics = False
+    await update.message.reply_text("🖼 Photos unlocked.")
+    
 # =====================
 # LOCK STICKERS
 # =====================
@@ -254,6 +266,18 @@ async def locksticker(update, context):
         "🎭 Stickers locked."
     )
 
+#======================
+# UNLOCK STICKERS 
+#=====================
+async def unlockstickers(update, context):
+    global lock_stickers
+
+    if not await is_admin(update):
+        return
+
+    lock_stickers = False
+    await update.message.reply_text("🎭 Stickers unlocked.")
+ 
 # =====================
 # FILTERS
 # =====================
@@ -327,7 +351,10 @@ def main():
     app.add_handler(CommandHandler("unlockall", unlockall))
 
     app.add_handler(CommandHandler("lockpics", lockpics))
+    app.add_handler(CommandHandler("unlockpics", unlockpics))
+    
     app.add_handler(CommandHandler("locksticker", locksticker))
+    app.add_handler(CommandHandler("unlockstickers", unlockstickers))
 
     app.add_handler(
         MessageHandler(
