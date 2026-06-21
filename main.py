@@ -91,65 +91,74 @@ async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # =====================
 # BAN
 # =====================
+from telegram import ChatPermissions
+
 async def ban(update, context):
-    if not await is_admin(update):
-        await update.message.reply_text("⚠️ You need admin to do this.")
-        return
+    try:
+        if not await is_admin(update):
+            await update.message.reply_text("⚠️ You need admin to do this.")
+            return
 
-    if not update.message.reply_to_message:
-        await update.message.reply_text("Reply to a user to ban them.")
-        return
+        if not update.message.reply_to_message:
+            await update.message.reply_text("❌ Reply to a user to ban them.")
+            return
 
-    user_id = update.message.reply_to_message.from_user.id
-    chat_id = update.effective_chat.id
+        user_id = update.message.reply_to_message.from_user.id
+        chat_id = update.effective_chat.id
 
-    banned.add(user_id)
-
-    await context.bot.restrict_chat_member(
-        chat_id=chat_id,
-        user_id=user_id,
-        permissions=ChatPermissions(
-            can_send_messages=False,
-            can_send_media_messages=False,
-            can_send_polls=False,
-            can_send_other_messages=False,
-            can_add_web_page_previews=False
+        await context.bot.restrict_chat_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            permissions=ChatPermissions(
+                can_send_messages=False,
+                can_send_media_messages=False,
+                can_send_polls=False,
+                can_send_other_messages=False,
+                can_add_web_page_previews=False,
+            )
         )
-    )
 
-    await update.message.reply_text("🚫 Another user gone 😞.")
+        await update.message.reply_text(
+            f"😞 Another user has gone!\nUser ID: {user_id}"
+        )
+
+    except Exception as e:
+        await update.message.reply_text(f"❌ Ban failed: {e}")
 
 # =====================
 # UNBAN
 # =====================
 async def unban(update, context):
-    if not await is_admin(update):
-        await update.message.reply_text("⚠️ You need admin to do this.")
-        return
+    try:
+        if not await is_admin(update):
+            await update.message.reply_text("⚠️ You need admin to do this.")
+            return
 
-    if not update.message.reply_to_message:
-        await update.message.reply_text("Reply to a user to unban them.")
-        return
+        if not update.message.reply_to_message:
+            await update.message.reply_text("❌ Reply to a user to unban them.")
+            return
 
-    user_id = update.message.reply_to_message.from_user.id
-    chat_id = update.effective_chat.id
+        user_id = update.message.reply_to_message.from_user.id
+        chat_id = update.effective_chat.id
 
-    banned.discard(user_id)
-
-    await context.bot.restrict_chat_member(
-        chat_id=chat_id,
-        user_id=user_id,
-        permissions=ChatPermissions(
-            can_send_messages=True,
-            can_send_media_messages=True,
-            can_send_polls=True,
-            can_send_other_messages=True,
-            can_add_web_page_previews=True
+        await context.bot.restrict_chat_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            permissions=ChatPermissions(
+                can_send_messages=True,
+                can_send_media_messages=True,
+                can_send_polls=True,
+                can_send_other_messages=True,
+                can_add_web_page_previews=True,
+            )
         )
-    )
 
-    await update.message.reply_text("Hey Hey welcome back dude 😎.")
+        await update.message.reply_text(
+            f"✅ Hey hey welcome again dude!\nUser ID: {user_id}"
+        )
 
+    except Exception as e:
+        await update.message.reply_text(f"❌ Unban failed: {e}")
 # =====================
 # MUTE
 # =====================
