@@ -7,15 +7,13 @@ import time
 # =====================
 # BOT TOKEN
 # =====================
-import os
-TOKEN = os.getenv("8969661165:AAHS20hgTSo9FperGJPybYBzovxkKoaJNX8")
-
+TOKEN = "8969661165:AAHS20hgTSo9FperGJPybYBzovxkKoaJNX8"
 # =====================
 # OWNER
 # =====================
 OWNER_ID = 8887583330
 ADMINS = set([OWNER_ID])
-
+l
 # =====================
 # DATABASE
 # =====================
