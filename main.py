@@ -1,180 +1,228 @@
-from telegram.ext import Updater, CommandHandler, MessageHandler, Filters
-from collections import defaultdict
-from flask import Flask
-import threading
 import time
+from collections import defaultdict
+
+from pymongo import MongoClient
+
+from telegram import Update, ChatPermissions
+from telegram.ext import (
+    ApplicationBuilder,
+    CommandHandler,
+    MessageHandler,
+    ContextTypes,
+    filters,
+)
 
 # =====================
-# BOT TOKEN
+# CONFIG
 # =====================
 TOKEN = "8969661165:AAHS20hgTSo9FperGJPybYBzovxkKoaJNX8"
-# =====================
-# OWNER
-# =====================
+MONGO_URL = "mongodb+srv://Godobito745_db_user:obito1877@telegram-bot.mfoibwj.mongodb.net/?appName=Telegram-bot"
 OWNER_ID = 8887583330
-ADMINS = set([OWNER_ID])
-l
+
 # =====================
-# DATABASE
+# MONGO
+# =====================
+client = MongoClient(MONGO_URL)
+db = client["telegram_bot"]
+
+warn_db = db["warns"]
+admin_db = db["admins"]
+
+# =====================
+# MEMORY
 # =====================
 banned = set()
 muted = set()
-warnings = defaultdict(int)
-
-settings = {
-    "chat_locked": False,
-    "antilink": True,
-    "antispam": True
-}
-
 spam_tracker = defaultdict(list)
 
-# =====================
-# FLASK (24/7 KEEP ALIVE)
-# =====================
-app = Flask(__name__)
-
-@app.route("/")
-def home():
-    return "Bot is running"
-
-def run():
-    app.run(host="0.0.0.0", port=8080)
-
-threading.Thread(target=run).start()
+chat_locked = False
+lock_pics = False
+lock_stickers = False
 
 # =====================
 # HELPERS
 # =====================
-def is_admin(user_id):
-    return user_id in ADMINS or user_id == OWNER_ID
-
-def get_target(update, context):
-    if update.message.reply_to_message:
-        return update.message.reply_to_message.from_user.id
-
-    if context.args:
-        try:
-            return int(context.args[0])
-        except:
-            return None
-    return None
-
-# =====================
-# COMMANDS
-# =====================
-def manage(update, context):
+async def is_admin(update: Update):
     user_id = update.effective_user.id
-    text = update.message.text.lower()
 
-    if not is_admin(user_id):
+    if user_id == OWNER_ID:
+        return True
+
+    member = await update.effective_chat.get_member(user_id)
+    return member.status in ["administrator", "creator"]
+
+# =====================
+# BASIC COMMANDS
+# =====================
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("🤖 Bot is online!")
+
+async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(f"🆔 Your ID: {update.effective_user.id}")
+
+# =====================
+# BAN / UNBAN
+# =====================
+async def ban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update):
+        await update.message.reply_text("⚠️ Admin only")
         return
 
-    target = get_target(update, context)
+    user = update.message.reply_to_message.from_user.id
+    banned.add(user)
+    await update.message.reply_text("🚫 User banned")
 
-    if text.startswith("/ban") and target:
-        banned.add(target)
-        update.message.reply_text("🚫 User banned")
+async def unban(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update):
+        return
 
-    elif text.startswith("/unban") and target:
-        banned.discard(target)
-        update.message.reply_text("✅ User unbanned")
+    user = update.message.reply_to_message.from_user.id
+    banned.discard(user)
+    await update.message.reply_text("✅ User unbanned")
 
-    elif text.startswith("/mute") and target:
-        muted.add(target)
-        update.message.reply_text("🔇 User muted")
+# =====================
+# MUTE
+# =====================
+async def mute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update):
+        return
 
-    elif text.startswith("/unmute") and target:
-        muted.discard(target)
-        update.message.reply_text("🔊 User unmuted")
+    user = update.message.reply_to_message.from_user.id
+    muted.add(user)
+    await update.message.reply_text("🔇 User muted")
 
-    elif text.startswith("/warn") and target:
-        warnings[target] += 1
-        if warnings[target] >= 3:
-            banned.add(target)
-            update.message.reply_text("🚫 Banned after 3 warnings")
-        else:
-            update.message.reply_text(f"⚠️ Warning {warnings[target]}/3")
+async def unmute(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update):
+        return
 
-    elif text.startswith("/lockall"):
-        settings["chat_locked"] = True
-        update.message.reply_text("🔒 Chat locked")
+    user = update.message.reply_to_message.from_user.id
+    muted.discard(user)
+    await update.message.reply_text("🔊 User unmuted")
 
-    elif text.startswith("/unlockall"):
-        settings["chat_locked"] = False
-        update.message.reply_text("🔓 Chat unlocked")
+# =====================
+# WARN SYSTEM
+# =====================
+async def warn(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not await is_admin(update):
+        return
 
-    elif text.startswith("/id"):
-        if target:
-            update.message.reply_text(f"🆔 ID: {target}")
-        else:
-            update.message.reply_text(f"🆔 Your ID: {user_id}")
+    user = update.message.reply_to_message.from_user.id
+
+    data = warn_db.find_one({"_id": user})
+    count = data["count"] if data else 0
+    count += 1
+
+    warn_db.update_one({"_id": user}, {"$set": {"count": count}}, upsert=True)
+
+    if count >= 3:
+        banned.add(user)
+        await update.message.reply_text("🚫 Banned after 3 warns")
+    else:
+        await update.message.reply_text(f"⚠️ Warning {count}/3")
+
+# =====================
+# LOCK SYSTEM
+# =====================
+async def lockall(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global chat_locked
+    if not await is_admin(update):
+        return
+
+    chat_locked = True
+    await update.message.reply_text("🔒 Chat locked")
+
+async def unlockall(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global chat_locked
+    if not await is_admin(update):
+        return
+
+    chat_locked = False
+    await update.message.reply_text("🔓 Chat unlocked")
+
+async def lockpics(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global lock_pics
+    if not await is_admin(update):
+        return
+
+    lock_pics = True
+    await update.message.reply_text("🖼 Photos locked")
+
+async def locksticker(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    global lock_stickers
+    if not await is_admin(update):
+        return
+
+    lock_stickers = True
+    await update.message.reply_text("🎭 Stickers locked")
 
 # =====================
 # MESSAGE FILTER
 # =====================
-def filter_messages(update, context):
+async def filter_messages(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.message:
+        return
+
     user = update.effective_user.id
     text = update.message.text or ""
 
     if user in banned:
-        update.message.delete()
+        await update.message.delete()
         return
 
     if user in muted:
-        update.message.delete()
+        await update.message.delete()
         return
 
-    if settings["chat_locked"] and not is_admin(user):
-        update.message.delete()
-        return
-
-    if settings["antilink"]:
-        if "http" in text or "t.me/" in text:
-            update.message.delete()
+    if chat_locked:
+        member = await update.effective_chat.get_member(user)
+        if member.status not in ["administrator", "creator"]:
+            await update.message.delete()
             return
 
-    if settings["antispam"]:
-        now = time.time()
-        spam_tracker[user].append(now)
-        spam_tracker[user] = [t for t in spam_tracker[user] if now - t < 4]
+    if "http" in text or "t.me/" in text:
+        if not await is_admin(update):
+            await update.message.delete()
+            return
 
-        if len(spam_tracker[user]) > 5:
-            update.message.delete()
+    now = time.time()
+    spam_tracker[user].append(now)
+    spam_tracker[user] = [t for t in spam_tracker[user] if now - t < 4]
+
+    if len(spam_tracker[user]) > 5:
+        await update.message.delete()
+
+    if update.message.photo and lock_pics:
+        if not await is_admin(update):
+            await update.message.delete()
+
+    if update.message.sticker and lock_stickers:
+        if not await is_admin(update):
+            await update.message.delete()
 
 # =====================
-# WELCOME / LEAVE
-# =====================
-def welcome(update, context):
-    for u in update.message.new_chat_members:
-        update.message.reply_text(f"👋 Welcome {u.first_name}")
-
-def leave(update, context):
-    user = update.message.left_chat_member
-    update.message.reply_text(f"👋 Bye {user.first_name}")
-
-# =====================
-# MAIN FUNCTION
+# MAIN
 # =====================
 def main():
-    updater = Updater(TOKEN, use_context=True)
-    dp = updater.dispatcher
+    app = ApplicationBuilder().token(TOKEN).build()
 
-    dp.add_handler(CommandHandler("ban", manage))
-    dp.add_handler(CommandHandler("unban", manage))
-    dp.add_handler(CommandHandler("mute", manage))
-    dp.add_handler(CommandHandler("unmute", manage))
-    dp.add_handler(CommandHandler("warn", manage))
-    dp.add_handler(CommandHandler("lockall", manage))
-    dp.add_handler(CommandHandler("unlockall", manage))
-    dp.add_handler(CommandHandler("id", manage))
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("id", id_cmd))
 
-    dp.add_handler(MessageHandler(Filters.text, filter_messages))
-    dp.add_handler(MessageHandler(Filters.status_update.new_chat_members, welcome))
-    dp.add_handler(MessageHandler(Filters.status_update.left_chat_member, leave))
+    app.add_handler(CommandHandler("ban", ban))
+    app.add_handler(CommandHandler("unban", unban))
+    app.add_handler(CommandHandler("mute", mute))
+    app.add_handler(CommandHandler("unmute", unmute))
+    app.add_handler(CommandHandler("warn", warn))
 
-    updater.start_polling()
-    updater.idle()
+    app.add_handler(CommandHandler("lockall", lockall))
+    app.add_handler(CommandHandler("unlockall", unlockall))
+    app.add_handler(CommandHandler("lockpics", lockpics))
+    app.add_handler(CommandHandler("locksticker", locksticker))
+
+    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, filter_messages))
+
+    print("Bot is running...")
+    app.run_polling()
 
 if __name__ == "__main__":
     main()
