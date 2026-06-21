@@ -15,7 +15,7 @@ from telegram.ext import (
 # =====================
 # CONFIG
 # =====================
-TOKEN = "8969661165:AAHS20hgTSo9FperGJPybYBzovxkKoaJNX8"
+TOKEN = "8969661165:AAEcO_i4VIVE681592N-pKtixfAYZczwvBw"
 MONGO_URL = "mongodb+srv://Godobito745_db_user:obito1877@telegram-bot.mfoibwj.mongodb.net/?appName=Telegram-bot"
 OWNER_ID = 8887583330
 
