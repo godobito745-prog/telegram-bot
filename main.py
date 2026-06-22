@@ -6,6 +6,8 @@ from flask import Flask
 
 from telegram import ChatPermissions
 
+from telegram.ext import ChatMemberHandler
+
 from pymongo import MongoClient
 
 from telegram import Update
@@ -27,13 +29,35 @@ MONGO_URL = "mongodb+srv://Godobito745_db_user:obito1877@telegram-bot.mfoibwj.mo
 OWNER_ID = 8887583330
 
 # =====================
+# welcome
+# =====================
+async def welcome(update, context):
+    for member in update.message.new_chat_members:
+        await update.message.reply_text(
+            f"🌸 Welcome {member.first_name}!\n\n"
+            "Enjoy the group and please follow the rules.\n"
+            "Have a great time here ❤️"
+        )
+        
+# =====================
+# GOOD BYEE
+# =====================
+async def goodbye(update, context):
+    user = update.message.left_chat_member
+
+    await update.message.reply_text(
+        f"👋 Goodbye {user.first_name}.\n"
+        "See you again someday."
+    )
+    
+# =====================
 # FLASK FOR RENDER
 # =====================
 web = Flask(__name__)
 
 @web.route("/")
 def home():
-    return "Bot is online!"
+    return "sakrura is online!"
 
 def run_web():
     port = int(os.environ.get("PORT", 10000))
@@ -76,17 +100,39 @@ async def is_admin(update):
 # START
 # =====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user = update.effective_user.first_name
+
     await update.message.reply_text(
-        "🤖 Bot Online!"
+        f"✨ Hello {user}!\n\n"
+        "I'm sakura ☺️, your group assistant bot.\n\n"
+        "🔹 Moderation System\n"
+        "🔹 Warn System\n"
+        "🔹 Lock System\n"
+        "🔹 Anti Spam\n"
+        "🔹 Admin Commands\n\n"
+        "Use /id to check IDs."
     )
 
 # =====================
 # ID
 # =====================
-async def id_cmd(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(
-        f"🆔 Your ID: {update.effective_user.id}"
-    )
+async def id_cmd(update, context):
+
+    if update.message.reply_to_message:
+        user = update.message.reply_to_message.from_user
+
+        await update.message.reply_text(
+            f"👤 Name: {user.first_name}\n"
+            f"🆔 User ID: {user.id}"
+        )
+
+    else:
+        user = update.effective_user
+
+        await update.message.reply_text(
+            f"👤 Name: {user.first_name}\n"
+            f"🆔 Your ID: {user.id}"
+        )
 
 # =====================
 # BAN
@@ -219,14 +265,18 @@ async def unmute(update, context):
     await context.bot.restrict_chat_member(
         chat_id=chat_id,
         user_id=user_id,
-        permissions=ChatPermissions(
-            can_send_messages=True,
-            can_send_media_messages=True,
-            can_send_polls=True,
-            can_send_other_messages=True,
-            can_add_web_page_previews=True
+        permissions = ChatPermissions(
+    can_send_messages=True,
+    can_send_audios=True,
+    can_send_documents=True,
+    can_send_photos=True,
+    can_send_videos=True,
+    can_send_video_notes=True,
+    can_send_voice_notes=True,
+    can_send_polls=True,
+    can_send_other_messages=True,
+    can_add_web_page_previews=True,
         )
-    )
 
     await update.message.reply_text("wow.....now you can speak 🗣️.")
 
@@ -405,7 +455,169 @@ async def unlockstickers(update, context):
 
     lock_stickers = False
     await update.message.reply_text("🎭 Stickers unlocked.")
- 
+
+# =====================
+# PIN
+# =====================
+async def pin(update, context):
+    if not await is_admin(update):
+        await update.message.reply_text(
+            "⚠️ You need admin to do this."
+        )
+        return
+
+    if not update.message.reply_to_message:
+        await update.message.reply_text(
+            "Reply to a message to pin it."
+        )
+        return
+
+    await update.message.reply_to_message.pin()
+
+    await update.message.reply_text(
+        "📌 Message pinned."
+    )
+# =====================
+# UNPIN
+# ===================== 
+async def unpin(update, context):
+    if not await is_admin(update):
+        return
+
+    await context.bot.unpin_all_chat_messages(
+        update.effective_chat.id
+    )
+
+    await update.message.reply_text(
+        "📌 Messages unpinned."
+    )
+
+# =====================
+# ADMIN LIST
+# =====================
+async def admins(update, context):
+    admins = await update.effective_chat.get_administrators()
+
+    text = "👑 Group Admins:\n\n"
+
+    for admin in admins:
+        text += f"• {admin.user.first_name}\n"
+
+    await update.message.reply_text(text)
+  
+# =====================
+# WARNS
+# =====================
+async def warns(update, context):
+
+    if not update.message.reply_to_message:
+        return
+
+    user = update.message.reply_to_message.from_user.id
+
+    data = warn_db.find_one({"_id": user})
+
+    count = data["count"] if data else 0
+
+    await update.message.reply_text(
+        f"⚠️ Warnings: {count}/3"
+    )
+    
+# =====================
+# CLEAR WARNS
+# =====================
+async def clearwarns(update, context):
+
+    if not await is_admin(update):
+        return
+
+    if not update.message.reply_to_message:
+        return
+
+    user = update.message.reply_to_message.from_user.id
+
+    warn_db.delete_one({"_id": user})
+
+    await update.message.reply_text(
+        "✅ Warnings cleared."
+    )
+
+# =====================
+# KICK
+# =====================
+async def kick(update, context):
+
+    if not await is_admin(update):
+        return
+
+    if not update.message.reply_to_message:
+        return
+
+    user = update.message.reply_to_message.from_user.id
+    chat = update.effective_chat.id
+
+    await context.bot.ban_chat_member(
+        chat,
+        user
+    )
+
+    await context.bot.unban_chat_member(
+        chat,
+        user
+    )
+
+    await update.message.reply_text(
+        "👢 User kicked."
+    )
+
+# =====================
+# TAG ALL
+# =====================
+async def tagall(update, context):
+    if not await is_admin(update):
+        await update.message.reply_text("⚠️ You need admin to do this.")
+        return
+
+    if not update.message.text:
+        return
+
+    args = context.args
+    custom_msg = " ".join(args) if args else "📢 Attention everyone!"
+
+    chat = update.effective_chat.id
+
+    members = await context.bot.get_chat_administrators(chat)
+
+    text = f"📢 {custom_msg}\n\n"
+
+    for admin in members:
+        user = admin.user
+        text += f"👤 @{user.username if user.username else user.first_name}\n"
+
+    await update.message.reply_text(text)
+
+# =====================
+# REPORT 
+# =====================
+async def report(update, context):
+    if not update.message.reply_to_message:
+        await update.message.reply_text("❌ Reply to a message to report.")
+        return
+
+    reason = " ".join(context.args) if context.args else "No reason provided"
+
+    reported_user = update.message.reply_to_message.from_user
+
+    text = (
+        "🚨 REPORT ALERT 🚨\n\n"
+        f"👤 User: {reported_user.first_name}\n"
+        f"🆔 ID: {reported_user.id}\n"
+        f"📝 Reason: {reason}\n\n"
+        "⚠️ Please take action admins!"
+    )
+
+    await update.message.reply_text(text)
+    
 # =====================
 # FILTERS
 # =====================
@@ -464,6 +676,19 @@ def main():
 
     app = ApplicationBuilder().token(TOKEN).build()
 
+    app.add_handler(
+    MessageHandler(
+        filters.StatusUpdate.NEW_CHAT_MEMBERS,
+        welcome
+    )
+)
+
+app.add_handler(
+    MessageHandler(
+        filters.StatusUpdate.LEFT_CHAT_MEMBER,
+        goodbye
+    )
+)
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("id", id_cmd))
 
@@ -489,6 +714,18 @@ def main():
 
     app.add_handler(CommandHandler("promote", promote))
     app.add_handler(CommandHandler("demote", demote))
+
+    app.add_handler(CommandHandler("pin", pin))
+    app.add_handler(CommandHandler("unpin", unpin))
+
+    app.add_handler(CommandHandler("admins", admins))
+
+    app.add_handler(CommandHandler("warns", warns))
+    app.add_handler(CommandHandler("clearwarns", clearwarns))
+
+    app.add_handler(CommandHandler("kick", kick))
+    app.add_handler(CommandHandler("tagall", tagall))
+    app.add_handler(CommandHandler("report", report))
 
     app.add_handler(
         MessageHandler(
