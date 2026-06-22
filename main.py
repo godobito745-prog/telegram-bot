@@ -684,7 +684,7 @@ def main():
     )
 )
 
-app.add_handler(
+    app.add_handler(
     MessageHandler(
         filters.StatusUpdate.LEFT_CHAT_MEMBER,
         goodbye
