@@ -137,20 +137,38 @@ async def id_cmd(update, context):
 # =====================
 # BAN
 # =====================
-from telegram import ChatPermissions
-
 async def ban(update, context):
     try:
         if not await is_admin(update):
-            await update.message.reply_text("⚠️ You need admin to do this.")
+            await update.message.reply_text(
+                "⚠️ You need admin to do this."
+            )
             return
 
         if not update.message.reply_to_message:
-            await update.message.reply_text("❌ Reply to a user to ban them.")
+            await update.message.reply_text(
+                "❌ Reply to a user to ban them."
+            )
             return
 
         user_id = update.message.reply_to_message.from_user.id
         chat_id = update.effective_chat.id
+
+        # Owner protection
+        if user_id == OWNER_ID:
+            await update.message.reply_text(
+                "❌ You cannot ban my owner."
+            )
+            return
+
+        # Admin protection
+        member = await update.effective_chat.get_member(user_id)
+
+        if member.status in ["administrator", "creator"]:
+            await update.message.reply_text(
+                "❌ You cannot take action against another admin."
+            )
+            return
 
         permissions = ChatPermissions(
             can_send_messages=False,
@@ -171,28 +189,51 @@ async def ban(update, context):
             permissions=permissions
         )
 
-        await update.message.reply_text("🚫 User banned successfully!")
+        await update.message.reply_text(
+            "🚫 The user turned into dust and disappeared.!"
+        )
 
     except Exception as e:
-        await update.message.reply_text(f"❌ Ban failed: {e}")
+        await update.message.reply_text(
+            f"❌ Ban failed: {e}"
+        )
         
 # =====================
 # UNBAN
 # =====================
 async def unban(update, context):
-    try:
-        if not await is_admin(update):
-            await update.message.reply_text("⚠️ You need admin to do this.")
-            return
+try:
+if not await is_admin(update):
+await update.message.reply_text(
+"⚠️ You need admin to do this."
+)
+return
 
-        if not update.message.reply_to_message:
-            await update.message.reply_text("❌ Reply to a user to unban them.")
-            return
+    if not update.message.reply_to_message:
+        await update.message.reply_text(
+            "❌ Reply to a user to unban them."
+        )
+        return
 
-        user_id = update.message.reply_to_message.from_user.id
-        chat_id = update.effective_chat.id
+    user_id = update.message.reply_to_message.from_user.id
+    chat_id = update.effective_chat.id
 
-        permissions = ChatPermissions(
+    if user_id == update.effective_user.id:
+        await update.message.reply_text(
+            "❌ You cannot use this command on yourself."
+        )
+        return
+
+    if user_id == OWNER_ID:
+        await update.message.reply_text(
+            "❌ You cannot unban my owner."
+        )
+        return
+
+    await context.bot.restrict_chat_member(
+        chat_id=chat_id,
+        user_id=user_id,
+        permissions=ChatPermissions(
             can_send_messages=True,
             can_send_audios=True,
             can_send_documents=True,
@@ -204,36 +245,56 @@ async def unban(update, context):
             can_send_other_messages=True,
             can_add_web_page_previews=True,
         )
+    )
 
-        await context.bot.restrict_chat_member(
-            chat_id=chat_id,
-            user_id=user_id,
-            permissions=permissions
-        )
+    await update.message.reply_text(
+        "✅ User unbanned successfully!"
+    )
 
-        await update.message.reply_text("✅ User unbanned successfully!")
+except Exception as e:
+    await update.message.reply_text(
+        f"❌ Unban failed: {e}"
+    )
 
-    except Exception as e:
-        await update.message.reply_text(f"❌ Unban failed: {e}")
-        
 # =====================
 # MUTE
 # =====================
-from telegram import ChatPermissions
-
 async def mute(update, context):
-    if not await is_admin(update):
-        await update.message.reply_text("⚠️ You need admin to do this.")
-        return
+try:
+if not await is_admin(update):
+await update.message.reply_text(
+"⚠️ You need admin to do this."
+)
+return
 
     if not update.message.reply_to_message:
-        await update.message.reply_text("Reply to a user to mute them.")
+        await update.message.reply_text(
+            "❌ Reply to a user to mute them."
+        )
         return
 
     user_id = update.message.reply_to_message.from_user.id
     chat_id = update.effective_chat.id
 
-    muted.add(user_id)
+    if user_id == update.effective_user.id:
+        await update.message.reply_text(
+            "❌ You cannot mute yourself."
+        )
+        return
+
+    if user_id == OWNER_ID:
+        await update.message.reply_text(
+            "❌ You cannot mute my owner."
+        )
+        return
+
+    member = await update.effective_chat.get_member(user_id)
+
+    if member.status in ["administrator", "creator"]:
+        await update.message.reply_text(
+            "❌ You cannot mute another admin."
+        )
+        return
 
     await context.bot.restrict_chat_member(
         chat_id=chat_id,
@@ -243,24 +304,40 @@ async def mute(update, context):
         )
     )
 
-    await update.message.reply_text("shhhh.....There is no need to speak now.")
+    await update.message.reply_text(
+        "🔇 shhhh.....There is no need to speak now."
+    )
+
+except Exception as e:
+    await update.message.reply_text(
+        f"❌ Mute failed: {e}"
+)
 
 # =====================
 # UNMUTE
 # =====================
 async def unmute(update, context):
-    if not await is_admin(update):
-        await update.message.reply_text("⚠️ You need admin to do this.")
-        return
+try:
+if not await is_admin(update):
+await update.message.reply_text(
+"⚠️ You need admin to do this."
+)
+return
 
     if not update.message.reply_to_message:
-        await update.message.reply_text("Reply to a user to unmute them.")
+        await update.message.reply_text(
+            "❌ Reply to a user to unmute them."
+        )
         return
 
     user_id = update.message.reply_to_message.from_user.id
     chat_id = update.effective_chat.id
 
-    muted.discard(user_id)
+    if user_id == update.effective_user.id:
+        await update.message.reply_text(
+            "❌ You cannot unmute yourself."
+        )
+        return
 
     await context.bot.restrict_chat_member(
         chat_id=chat_id,
@@ -279,7 +356,14 @@ async def unmute(update, context):
         )
     )
 
-    await update.message.reply_text("wow.....now you can speak 🗣️.")
+    await update.message.reply_text(
+        "🔊 wow.....now you can speak 🗣️."
+    )
+
+except Exception as e:
+    await update.message.reply_text(
+        f"❌ Unmute failed: {e}"
+    )
 
 # ======================
 # PORMOTE 
