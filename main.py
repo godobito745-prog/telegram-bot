@@ -203,58 +203,63 @@ async def ban(update, context):
 # =====================
 async def unban(update, context):
     try:
+        # Admin check
         if not await is_admin(update):
             await update.message.reply_text(
                 "⚠️ You need admin to do this."
             )
             return
 
+        # Reply check
         if not update.message.reply_to_message:
             await update.message.reply_text(
                 "❌ Reply to a user to unban them."
             )
             return
 
-    user_id = update.message.reply_to_message.from_user.id
-    chat_id = update.effective_chat.id
+        user_id = update.message.reply_to_message.from_user.id
+        chat_id = update.effective_chat.id
 
-    if user_id == update.effective_user.id:
+        # Self protection
+        if user_id == update.effective_user.id:
+            await update.message.reply_text(
+                "❌ You cannot unban yourself."
+            )
+            return
+
+        # Owner protection
+        if user_id == OWNER_ID:
+            await update.message.reply_text(
+                "❌ You cannot unban my owner."
+            )
+            return
+
+        # Unban user
+        await context.bot.restrict_chat_member(
+            chat_id=chat_id,
+            user_id=user_id,
+            permissions=ChatPermissions(
+                can_send_messages=True,
+                can_send_audios=True,
+                can_send_documents=True,
+                can_send_photos=True,
+                can_send_videos=True,
+                can_send_video_notes=True,
+                can_send_voice_notes=True,
+                can_send_polls=True,
+                can_send_other_messages=True,
+                can_add_web_page_previews=True,
+            )
+        )
+
         await update.message.reply_text(
-            "❌ You cannot use this command on yourself."
+            "✅ User unbanned successfully!"
         )
-        return
 
-    if user_id == OWNER_ID:
+    except Exception as e:
         await update.message.reply_text(
-            "❌ You cannot unban my owner."
+            f"❌ Unban failed: {e}"
         )
-        return
-
-    await context.bot.restrict_chat_member(
-        chat_id=chat_id,
-        user_id=user_id,
-        permissions=ChatPermissions(
-            can_send_messages=True,
-            can_send_audios=True,
-            can_send_documents=True,
-            can_send_photos=True,
-            can_send_videos=True,
-            can_send_video_notes=True,
-            can_send_voice_notes=True,
-            can_send_polls=True,
-            can_send_other_messages=True,
-            can_add_web_page_previews=True,
-        )
-    )
-
-    await update.message.reply_text(
-        "✅ User unbanned successfully!"
-    )
-
-except Exception as e:
-    await update.message.reply_text(
-        f"❌ Unban failed: {e}"
-    )
 
 # =====================
 # MUTE
