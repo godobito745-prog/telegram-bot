@@ -204,16 +204,16 @@ async def ban(update, context):
 async def unban(update, context):
     try:
         if not await is_admin(update):
-await update.message.reply_text(
-"⚠️ You need admin to do this."
-)
-return
+            await update.message.reply_text(
+                "⚠️ You need admin to do this."
+            )
+            return
 
-    if not update.message.reply_to_message:
-        await update.message.reply_text(
-            "❌ Reply to a user to unban them."
-        )
-        return
+        if not update.message.reply_to_message:
+            await update.message.reply_text(
+                "❌ Reply to a user to unban them."
+            )
+            return
 
     user_id = update.message.reply_to_message.from_user.id
     chat_id = update.effective_chat.id
