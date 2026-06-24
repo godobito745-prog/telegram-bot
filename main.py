@@ -202,8 +202,8 @@ async def ban(update, context):
 # UNBAN
 # =====================
 async def unban(update, context):
-try:
-if not await is_admin(update):
+    try:
+        if not await is_admin(update):
 await update.message.reply_text(
 "⚠️ You need admin to do this."
 )
